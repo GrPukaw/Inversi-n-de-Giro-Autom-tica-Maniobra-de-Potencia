@@ -2,18 +2,20 @@ import time
 import os
 import matplotlib.pyplot as plt
 
-# --- RUTA ASIGNADA PARA INVERSIÓN DE GIRO ---
-ruta_compartida = r"C:\Users\Hp\Documents\proyecto_inversion_giro"
+# --- NUEVA RUTA ASIGNADA PARA INVERSIÓN DE GIRO ---
+ruta_compartida = r"C:\Users\Hp\Documents\Inversi-n-de-Giro-Autom-tica-Maniobra-de-Potencia"
+
+# Verificación y creación automatizada del directorio de trabajo
 if not os.path.exists(ruta_compartida):
     os.makedirs(ruta_compartida)
 os.chdir(ruta_compartida)
 
-# --- CONFIGURACIÓN DE ALTA RESOLUCIÓN ---
-pasos = 1000  # Más pasos porque el dt es más pequeño
-dt = 0.005    # PASO DE TIEMPO ULTRA FINO PARA EVITAR DIVERGENCIA (5 milisegundos)
+# --- CONFIGURACIÓN DE ALTA RESOLUCIÓN NUMÉRICA ---
+pasos = 1000  # Número de iteraciones
+dt = 0.005    # Paso temporal fino (5ms) para asegurar convergencia y estabilidad
 set_point = 100.0  
 
-# Sintonización PID suavizada para evitar el efecto de oscilación salvaje (Chattering)
+# Sintonización PID suavizada para erradicar el efecto Chattering en el voltaje
 Kp, Ki, Kd = 0.25, 0.05, 0.001
 integral, error_anterior = 0.0, 0.0
 
@@ -30,35 +32,37 @@ historial_va = []
 historial_error = []
 historial_tcarga = []
 
+# Limpieza preventiva del canal de archivos compartidos
 for f in ['entrada.txt', 'salida.txt']:
     if os.path.exists(f):
         try: os.remove(f)
         except: pass
 
 print("==================================================================")
-print("  CO-SIMULACIÓN OPTIMIZADA: INVERSIÓN DE GIRO AUTOMÁTICA          ")
+print("  CO-SIMULACIÓN: INVERSIÓN DE GIRO AUTOMÁTICA EN NUEVO DIRECTORIO ")
 print("==================================================================")
+print(f"Ruta de operaciones activa: {ruta_compartida}\n")
 
 for step in range(pasos):
     tiempo = step * dt
     
-    # Inversión automática de marcha a los 2.5 segundos
+    # Criterio de inversión automática de marcha (A los 2.5 segundos)
     if tiempo >= 2.5:
         set_point = -100.0  
     
-    # Perturbación de carga (frenado) al segundo 4.0
+    # Perturbación de carga (frenado mecánico) al segundo 4.0
     if tiempo >= 4.0:
         t_carga = 2.0  
     else:
         t_carga = 0.0
 
-    # 1. CONTROLADOR PID
+    # 1. ALGORITMO DEL CONTROLADOR PID
     error = set_point - w_actual
     integral += error * dt
     derivada = (error - error_anterior) / dt
     
     voltaje_va = (Kp * error) + (Ki * integral) + (Kd * derivada)
-    voltaje_va = max(-24.0, min(voltaje_va, 24.0))  # Voltaje nominal estándar de 24V
+    voltaje_va = max(-24.0, min(voltaje_va, 24.0))  # Restricción física a fuente de 24V
     error_anterior = error
 
     historial_tiempo.append(tiempo)
@@ -69,15 +73,15 @@ for step in range(pasos):
     historial_error.append(error)
     historial_tcarga.append(t_carga)
 
-    # 2. ENVIAR COMANDOS
+    # 2. ESCRITURA DE DATOS PARA LA PLANTA EN MATLAB
     with open('entrada.txt', 'w') as f:
         f.write(f"{voltaje_va:.4f} {t_carga:.4f}\n")
     
-    # 3. ESPERAR PLANTA
+    # 3. PROTOCOLO HANDSHAKE: ESPERAR SCRIPT DE MATLAB
     while not os.path.exists('salida.txt'):
         time.sleep(0.001)
 
-    # 4. LEER RESPUESTA
+    # 4. CAPTURA DE RESPUESTA ELECTROMECÁNICA EN LAZO CERRADO
     lectura_exitosa = False
     while not lectura_exitosa:
         try:
@@ -93,9 +97,9 @@ for step in range(pasos):
     try: os.remove('salida.txt')
     except: pass
 
-print("\n¡Simulación numérica exitosa! Generando macro-panel estabilizado...")
+print("\n¡Simulación numérica completada! Generando panel analítico estable...")
 
-# --- GRAFICACIÓN ---
+# --- GRAFICACIÓN SIMULTÁNEA DE VARIABLES (GRID 3x2) ---
 plt.figure(figsize=(14, 10))
 
 plt.subplot(3, 2, 1)
